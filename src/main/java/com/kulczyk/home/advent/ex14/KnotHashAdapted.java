@@ -1,8 +1,5 @@
-package com.kulczyk.home.advent.ex10;
+package com.kulczyk.home.advent.ex14;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -10,39 +7,42 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class KnotHashPt2 {
+public class KnotHashAdapted {
 
-    private static final String FILENAME = "src/main/resources/hashinput.txt";
-
-    private static List<Integer> numbers = new ArrayList<>(IntStream.rangeClosed(0, 255).boxed().collect(Collectors.toList()));
-    private static List<Integer> lengths = new ArrayList<>();
+    private static List<Integer> numbers = new ArrayList<>();
+    private static List<Integer> lengths = new ArrayList<>(256);
     private static List<Integer> denseHash = new ArrayList<>(16);
     private static int currentPosition = 0;
     private static int skipSize = 0;
 
     public static void main(String[] args) {
-        readLengths();
-        hashAll();
-        denseHash.stream()
-                .map(num -> Integer.toHexString(0x100 | num).substring(1))
-                .forEach(System.out::print);
     }
 
-    private static void readLengths() {
-        try {
-            byte[] bytes = Files.readAllBytes(Paths.get(FILENAME));
-            for (byte aByte : bytes) {
-                lengths.add((int) aByte);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+    public static String calculate(String seed) {
+        numbers = IntStream.rangeClosed(0, 255).boxed().collect(Collectors.toList());
+        readLengths(seed);
+        hashAll();
+        numbers.clear();
+        currentPosition = 0;
+        skipSize = 0;
+        return denseHash.stream()
+                .map(num -> Integer.toHexString(0x100 | num).substring(1))
+                .collect(Collectors.joining());
+    }
+
+    private static void readLengths(String seed) {
+        lengths.clear();
+        byte[] bytes = seed.getBytes();
+        for (byte aByte : bytes) {
+            lengths.add((int) aByte);
         }
         lengths.addAll(Arrays.asList(17, 31, 73, 47, 23));
     }
 
     private static void hashAll() {
+        denseHash.clear();
         for (int i = 0; i < 64; i++) {
-            lengths.forEach(KnotHashPt2::hashSingle);
+            lengths.forEach(KnotHashAdapted::hashSingle);
         }
         for (int i = 0; i < 16; i++) {
             int hash = 0;
