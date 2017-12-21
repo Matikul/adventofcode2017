@@ -5,18 +5,21 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
-public class Duet {
+public class DuetPt2 {
 
     private static final String FILENAME = "src/main/resources/assembly.txt";
 
     private static List<Instruction> instructions;
-    private static Map<String, Long> registers = new HashMap<>();
-    private static long currentFrequency = 0;
-    private static int currentPosition = 0;
+    private Map<String, Long> registers = new HashMap<>();
+    private Queue<Long> received = new LinkedList<>();
+    private int currentPosition = 0;
+    private DuetPt2 otherProgram = null;
+    private boolean isLocked = false;
+    private int sendCount = 0;
 
     public static void main(String[] args) {
         readInstructions();
-        runInstructions();
+        runPrograms();
     }
 
     private static void readInstructions() {
@@ -29,17 +32,29 @@ public class Duet {
         }
     }
 
-    private static void runInstructions() {
-        while (currentPosition >= 0 && currentPosition < instructions.size()) {
-            processInstruction(instructions.get(currentPosition));
+    private static void runPrograms() {
+        DuetPt2 program0 = new DuetPt2();
+        DuetPt2 program1 = new DuetPt2();
+        program0.registers.put("p", 0L);
+        program1.registers.put("p", 1L);
+        program0.otherProgram = program1;
+        program1.otherProgram = program0;
+        while (!program0.isLocked || !program1.isLocked) {
+            if (!program0.isLocked) {
+                program0.processInstruction(instructions.get(program0.currentPosition));
+            }
+            if (!program1.isLocked) {
+                program1.processInstruction(instructions.get(program1.currentPosition));
+            }
         }
+        System.out.println(program1.sendCount);
     }
 
-    private static void processInstruction(Instruction instruction) {
+    private void processInstruction(Instruction instruction) {
         int instructionShift = 1;
         switch (instruction.name) {
             case "snd":
-                currentFrequency = resolveArgument(instruction.arg1);
+                send(resolveArgument(instruction.arg1));
                 break;
             case "set":
                 registers.put(instruction.arg1, resolveArgument(instruction.arg2));
@@ -57,9 +72,11 @@ public class Duet {
                 registers.put(instruction.arg1, toModulo % resolveArgument(instruction.arg2));
                 break;
             case "rcv":
-                long regValue = resolveArgument(instruction.arg1);
-                if (regValue != 0) {
-                    System.out.println("Recovered frequency: " + currentFrequency);
+                if (received.isEmpty()) {
+                    isLocked = true;
+                    instructionShift = 0;
+                } else {
+                    registers.put(instruction.arg1, received.remove());
                 }
                 break;
             case "jgz":
@@ -72,7 +89,7 @@ public class Duet {
         currentPosition += instructionShift;
     }
 
-    private static long resolveArgument(String arg) {
+    private long resolveArgument(String arg) {
         if (isNumber(arg)) {
             return Long.parseLong(arg);
         }
@@ -83,21 +100,21 @@ public class Duet {
         return 0;
     }
 
-    private static boolean isNumber(String arg) {
+    private boolean isNumber(String arg) {
         return arg.chars().allMatch(ch -> Character.isDigit(ch) || ch == '-');
     }
 
-//    private static void moveInstructionPointer(int shift) {
-//        int instructionsCount = instructions.size();
-//        shift %= instructionsCount;
-//        currentPosition += shift;
-//        if (currentPosition >= instructionsCount) {
-//            currentPosition -= instructionsCount;
-//        }
-//        if (currentPosition < 0) {
-//            currentPosition += instructionsCount;
-//        }
-//    }
+    private void send(long value) {
+        sendCount++;
+        otherProgram.receive(value);
+    }
+
+    private void receive(long value) {
+        if (isLocked) {
+            isLocked = false;
+        }
+        received.add(value);
+    }
 
     private static class Instruction {
         private String name = null;
